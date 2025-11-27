@@ -1,0 +1,116 @@
+# ----------------------------------------------
+# 1. IMPORTS
+# ----------------------------------------------
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+# ----------------------------------------------
+# 2. JOB SEARCH SETTINGS
+# ----------------------------------------------
+
+keywords = [
+    "Health Informatics",
+    "HIM",
+    "Health Information Management",
+    "Clinical Data Analyst",
+    "Healthcare Data Analyst",
+    "EHR Analyst",
+    "EMR Analyst",
+    "Biomedical Informatics",
+    "Health IT",
+    "data"
+] # ||add the requited positions||
+
+hospital_links = [
+    "https://www.massgeneral.org/careers",
+    "https://jobs.northwell.edu",
+    "https://jobs.bannerhealth.com",
+    "https://careers.commonspirit.org",
+    "https://careers.mountsinai.org",
+    "https://jobs.chsli.org"
+]
+
+linkedin_template = "https://www.linkedin.com/jobs/search/?keywords={}"
+indeed_template   = "https://www.indeed.com/jobs?q={}"
+
+# ----------------------------------------------
+# 3. FUNCTION TO COLLECT JOB LINKS
+# ----------------------------------------------
+
+def collect_job_links():
+    results = []
+
+    # Hospital Sites
+    for url in hospital_links:
+        results.append({
+            "Source": "Hospital Careers",
+            "Website": url,
+            "Matched Keyword": "data"   # hospital pages not keyword-specific
+        })
+
+    # LinkedIn & Indeed
+    for kw in keywords:
+        results.append({
+            "Source": "LinkedIn",
+            "Website": linkedin_template.format(kw.replace(" ", "%20")),
+            "Matched Keyword": kw
+        })
+        results.append({
+            "Source": "Indeed",
+            "Website": indeed_template.format(kw.replace(" ", "+")),
+            "Matched Keyword": kw
+        })
+
+    return pd.DataFrame(results)
+
+
+# ----------------------------------------------
+# 4. EMAIL SENDING FUNCTION
+# ----------------------------------------------
+def send_email_notification(job_results):
+
+    sender_email = "your email ID"
+    receiver_email = "your same email ID"
+    app_password = " should create a gmail app password"   # Gmail App Password
+
+    subject = "Daily Healthcare Job Alert – New Matches Found"
+
+    body = "Here are your matched job postings for today:\n\n"
+
+    for idx, row in job_results.iterrows():
+        body += f"Keyword: {row['Matched Keyword']}\n"
+        body += f"Source: {row['Source']}\n"
+        body += f"Link: {row['Website']}\n\n"
+
+    msg = MIMEMultipart()
+    msg["From"] = sender_email
+    msg["To"] = receiver_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
+
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(sender_email, app_password)
+        server.sendmail(sender_email, receiver_email, msg.as_string())
+        server.quit()
+        print("Email sent successfully!")
+    except Exception as e:
+        print("ERROR sending email:", e)
+
+
+# ----------------------------------------------
+# 5. MAIN RUN
+# ----------------------------------------------
+
+print("Collecting job results...")
+job_results = collect_job_links()
+
+job_results.to_csv("daily_job_report.csv", index=False)
+print("DONE! Saved to daily_job_report.csv")
+
+send_email_notification(job_results)
